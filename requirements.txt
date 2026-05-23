@@ -1,1 +1,1 @@
-pip install pandas numpy scikit-learn matplotlib streamlit plotly joblib gdown
+pip install pandas numpy scikit-learn matplotlib streamlit plotly joblib gdown pip install tensorflow

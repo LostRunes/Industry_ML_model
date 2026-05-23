@@ -7,7 +7,9 @@ MODEL_URLS = {
     "anomaly_scaler.pkl": "https://drive.google.com/file/d/1Lcbt4sD0_Qb5HLfZa3n1SOkB2fkNQceJ/view?usp=drive_link",
     "tep_scaler.pkl": "https://drive.google.com/file/d/1C-Al6_H_pu-ERtLtEJjusHGPykWgNhuO/view?usp=drive_link",
     "fault_classifier.pkl": "https://drive.google.com/file/d/1GnBE5pWPkMs4ukVotTfqk_SiS63dOtSE/view?usp=drive_link",
-    "pca_model.pkl": "https://drive.google.com/file/d/1ADZvcjKOv7CT3LSv6Wh6d-lVEDZh3j3X/view?usp=drive_link"
+    "pca_model.pkl": "https://drive.google.com/file/d/1ADZvcjKOv7CT3LSv6Wh6d-lVEDZh3j3X/view?usp=drive_link",
+    "lstm_fault_model.keras": "https://drive.google.com/file/d/1DRZSS4r7BpUp8xRT4cOJBY0XS0bQZKjS/view?usp=drive_link",
+    "lstm_label_encoder.pkl": "https://drive.google.com/file/d/1VkgBPrKuWouny9zcjmK1n7HdFHyQp6Na/view?usp=drive_link",
 }
 
 os.makedirs("models", exist_ok=True)

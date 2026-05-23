@@ -1,3 +1,4 @@
+#streamlit run app/dashboard.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -8,6 +9,9 @@ import json
 from datetime import datetime
 
 from streamlit_option_menu import option_menu
+
+from tensorflow.keras.models import load_model
+from collections import deque
 
 if not os.path.exists("models/tep_fault_classifier.pkl"):
     import download_models
@@ -55,6 +59,13 @@ anomaly_scaler = joblib.load("models/anomaly_scaler.pkl")
 
 pca_model = joblib.load("models/pca_model.pkl")
 
+lstm_model = load_model(
+    "models/lstm_fault_model.keras"
+)
+
+lstm_encoder = joblib.load(
+    "models/lstm_label_encoder.pkl"
+)
 # ============================================================
 # FEATURE LIST
 # ============================================================
@@ -85,6 +96,14 @@ if "anomaly_active" not in st.session_state:
 if "last_logged_fault" not in st.session_state:
     st.session_state.last_logged_fault = None
 
+if "sequence_buffer" not in st.session_state:
+
+    st.session_state.sequence_buffer = deque(
+        maxlen=10
+    )
+
+if "probability_history" not in st.session_state:
+    st.session_state.probability_history = []
 # ============================================================
 # SIDEBAR & PRESETS
 # ============================================================
@@ -185,6 +204,71 @@ else:
 live_scaled = classifier_scaler.transform(input_array)
 live_pca = pca_model.transform(live_scaled)[0]
 
+# ====================================================
+# LSTM SEQUENCE PREDICTION
+# ====================================================
+
+lstm_prediction = "Waiting for sequence..."
+lstm_confidence = 0.0
+if len(st.session_state.sequence_buffer) == 10:
+
+    sequence_array = np.array(
+        st.session_state.sequence_buffer
+    )
+
+    sequence_array = sequence_array.reshape(
+        1,
+        10,
+        len(feature_names)
+    )
+
+    # SCALE SEQUENCE
+    reshaped = sequence_array.reshape(
+        -1,
+        len(feature_names)
+    )
+
+    reshaped = classifier_scaler.transform(
+        reshaped
+    )
+
+    sequence_array = reshaped.reshape(
+        1,
+        10,
+        len(feature_names)
+    )
+
+    lstm_probs = lstm_model.predict(
+        sequence_array,
+        verbose=0
+    )
+
+    # Store probability history
+    if "probability_history" not in st.session_state:
+
+        st.session_state.probability_history = []
+
+    current_probs = lstm_probs[0]
+
+    st.session_state.probability_history.append(
+        current_probs
+    )
+
+    # Keep only latest 30 frames
+    st.session_state.probability_history = (
+        st.session_state.probability_history[-30:]
+    )
+
+
+
+    lstm_class = np.argmax(lstm_probs)
+
+    lstm_prediction = (
+        lstm_encoder.inverse_transform(
+            [lstm_class]
+        )[0]
+    )
+
 # ============================================================
 # INCIDENT LOGGING ENGINE
 # ============================================================
@@ -275,6 +359,18 @@ with metric_col4:
         "Process Health Score",
         f"{health_score:.1f}%"
     )
+
+with metric_col4:
+
+    st.metric(
+        "LSTM Sequence Prediction",
+        f"Fault {lstm_prediction}"
+    )
+
+    st.metric(
+    "LSTM Confidence",
+    f"{lstm_confidence * 100:.2f}%"
+)
 
 st.markdown("---")
 
@@ -462,6 +558,25 @@ elif selected == "Anomaly Analysis":
     )
 
 # ============================================================
+# LIVE FAULT EVOLUTION
+# ============================================================
+
+st.subheader("Live Fault Probability Evolution")
+
+if len(st.session_state.probability_history) > 0:
+
+    prob_df = pd.DataFrame(
+        st.session_state.probability_history
+    )
+
+    prob_df.columns = [
+        f"Fault {i}"
+        for i in range(1, 21)
+    ]
+
+    st.line_chart(prob_df)
+
+# ============================================================
 # LIVE PROCESS SIMULATION TRIGGER & DRIFT
 # ============================================================
 
@@ -485,6 +600,9 @@ st.session_state.input_data = (
     st.session_state.input_data + noise
 )
 
+st.session_state.sequence_buffer.append(
+    st.session_state.input_data.copy()
+)
 # Append data to rolling sensor history
 st.session_state.history.append({
     "xmeas_1": st.session_state.input_data[0],

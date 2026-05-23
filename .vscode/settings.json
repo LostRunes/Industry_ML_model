@@ -1,0 +1,7 @@
+{
+    "python.defaultInterpreterPath": "C:/Users/KIIT/OneDrive/Desktop/industry-model/venv/Scripts/python.exe",
+    "python.analysis.extraPaths": [
+        "./venv/Lib/site-packages"
+    ],
+    "python.analysis.typeCheckingMode": "basic"
+}
