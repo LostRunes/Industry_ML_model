@@ -5,7 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
 # Load dataset
-df = pd.read_csv("tep_subset.csv")
+df = pd.read_csv("data/tep_subset.csv.csv")
 
 # Remove metadata columns
 X = df.drop(columns=["faultNumber", "simulationRun", "sample"])

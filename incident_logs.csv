@@ -1,0 +1,4 @@
+Timestamp,Predicted Fault,Confidence,Health Score,Drift Status
+2026-05-23 18:15:44,Fault 2,34.67%,65.3%,HIGH DRIFT
+
+2026-05-23 18:15:44,Fault 8,26.00%,74.0%,HIGH DRIFT

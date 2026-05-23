@@ -10,7 +10,7 @@ from sklearn.metrics import (
 )
 
 # Load dataset
-df = pd.read_csv("tep_subset.csv")
+df = pd.read_csv("data/tep_subset.csv.csv")
 
 # Features
 X = df.drop(columns=[
@@ -65,3 +65,10 @@ cm = confusion_matrix(y_test, y_pred)
 
 print("\nConfusion Matrix:")
 print(cm)
+
+import joblib
+
+joblib.dump(model, "models/tep_fault_classifier.pkl")
+joblib.dump(scaler, "models/tep_scaler.pkl")
+
+print("\nModel saved successfully!")

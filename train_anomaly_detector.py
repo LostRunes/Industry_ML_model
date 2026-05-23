@@ -125,3 +125,10 @@ print(classification_report(
     y_pred,
     target_names=["Normal", "Anomaly"]
 ))
+
+import joblib
+
+joblib.dump(model, "models/anomaly_detector.pkl")
+joblib.dump(scaler, "models/anomaly_scaler.pkl")
+
+print("\nAnomaly model saved successfully!")

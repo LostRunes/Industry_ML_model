@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Load subset
-df = pd.read_csv("tep_subset.csv")
+df = pd.read_csv("data/tep_subset.csv.csv")
 
 print("\nDataset Shape:")
 print(df.shape)

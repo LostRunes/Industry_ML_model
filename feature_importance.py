@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 
 # Load dataset
-df = pd.read_csv("tep_subset.csv")
+df = pd.read_csv("data/tep_subset.csv.csv")
 
 # Features
 X = df.drop(columns=[

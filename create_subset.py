@@ -39,6 +39,6 @@ print("\nFault Counts:")
 print(subset["faultNumber"].value_counts().sort_index())
 
 # Save
-subset.to_csv("tep_subset.csv", index=False)
+subset.to_csv("data/tep_subset.csv.csv", index=False)
 
 print("\nSubset saved successfully!")
