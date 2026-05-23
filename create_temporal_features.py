@@ -74,7 +74,7 @@ print("New Shape:", df.shape)
 # ============================================================
 
 df.to_csv(
-    "tep_temporal_features.csv",
+    "data/tep_temporal_features.csv",
     index=False
 )
 

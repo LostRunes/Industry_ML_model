@@ -22,7 +22,7 @@ if not os.path.exists("data/"):
 # LOAD TEMPORAL DATASET
 # ============================================================
 #https://drive.google.com/file/d/1-iNc8QXjQo29-Az-5pkPmhskMt6J7AzL/view?usp=drive_link
-df = pd.read_csv("tep_temporal_features.csv")
+df = pd.read_csv("data/tep_temporal_features.csv")
 
 print("Dataset Shape:", df.shape)
 
