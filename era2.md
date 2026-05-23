@@ -55,3 +55,12 @@ Implemented:
 Improved fault classification accuracy
 from 72% (static ML) to 97.6% using
 temporal process intelligence.
+
+
+not added:
+https://drive.google.com/file/d/1-iNc8QXjQo29-Az-5pkPmhskMt6J7AzL/view?usp=drive_link 
+
+if not os.path.exists("models/"):
+    import download_models
+if not os.path.exists("data/"):
+    import download_dataset
