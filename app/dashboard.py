@@ -1,9 +1,11 @@
 #streamlit run app/dashboard.py
 import streamlit as st
+import time
 import pandas as pd
 import numpy as np
 import joblib
 import plotly.graph_objects as go
+import plotly.express as px
 import os
 import json
 from datetime import datetime
@@ -81,6 +83,38 @@ feature_names = [
 ]
 
 # ============================================================
+# NORMAL BASELINE
+# ============================================================
+
+@st.cache_data
+def get_normal_baseline():
+    try:
+        df = pd.read_csv("data/tep_subset.csv")
+        return df[feature_names].mean()
+    except Exception as e:
+        try:
+            with open("data/presets.json") as f:
+                presets = json.load(f)
+            return pd.Series(presets["0"], index=feature_names)
+        except Exception:
+            return pd.Series(0.0, index=feature_names)
+
+normal_baseline = get_normal_baseline()
+
+# ============================================================
+# LOAD REPLAY DATASET
+# ============================================================
+
+@st.cache_data
+def load_replay_dataset():
+    try:
+        return pd.read_csv("data/tep_replay.csv")
+    except Exception:
+        return pd.DataFrame()
+
+replay_df = load_replay_dataset()
+
+# ============================================================
 # INITIALIZE SESSION STATE
 # ============================================================
 
@@ -109,6 +143,16 @@ if "sequence_buffer" not in st.session_state:
 
 if "probability_history" not in st.session_state:
     st.session_state.probability_history = []
+
+if "fault_history" not in st.session_state:
+    st.session_state.fault_history = []
+
+if "replay_index" not in st.session_state:
+    st.session_state.replay_index = 0
+
+if "replay_active" not in st.session_state:
+    st.session_state.replay_active = False
+
 # ============================================================
 # SIDEBAR & PRESETS
 # ============================================================
@@ -169,6 +213,34 @@ with st.sidebar:
         st.session_state.last_logged_fault = None
         st.rerun()
 
+    st.markdown("---")
+    st.subheader("Fault Replay Simulator")
+
+    selected_fault = st.selectbox(
+        "Select Fault",
+        sorted(replay_df["faultNumber"].unique()) if not replay_df.empty else [0]
+    )
+
+    start_replay = st.button(
+        "Start Replay"
+    )
+
+# ============================================================
+# START REPLAY LOGIC & FILTER FAULT DATA
+# ============================================================
+
+if start_replay:
+    st.session_state.replay_active = True
+    st.session_state.replay_index = 0
+    st.session_state.sequence_buffer.clear()
+
+if not replay_df.empty:
+    fault_data = replay_df[
+        replay_df["faultNumber"] == selected_fault
+    ].reset_index(drop=True)
+else:
+    fault_data = pd.DataFrame()
+
 # ============================================================
 # RUN AI ANALYSIS (CONTINUOUS)
 # ============================================================
@@ -215,6 +287,7 @@ live_pca = pca_model.transform(live_scaled)[0]
 
 lstm_prediction = "Waiting for sequence..."
 lstm_confidence = 0.0
+early_warning = False
 if len(st.session_state.sequence_buffer) == 10:
 
     sequence_array = np.array(
@@ -267,6 +340,7 @@ if len(st.session_state.sequence_buffer) == 10:
 
 
     lstm_class = np.argmax(lstm_probs)
+    lstm_confidence = float(np.max(lstm_probs))
 
     lstm_prediction = (
         lstm_encoder.inverse_transform(
@@ -274,13 +348,63 @@ if len(st.session_state.sequence_buffer) == 10:
         )[0]
     )
 
+    st.session_state.fault_history.append(
+        float(lstm_confidence)
+    )
+
+    # Keep latest 30 frames
+    st.session_state.fault_history = (
+        st.session_state.fault_history[-30:]
+    )
+
+    if len(st.session_state.fault_history) >= 5:
+
+        recent = st.session_state.fault_history[-5:]
+
+        # Check for rising trend
+        if (
+            recent[-1] > recent[0]
+            and recent[-1] > 0.60
+        ):
+
+            early_warning = True
+
+# ============================================================
+# ROOT CAUSE ANALYSIS
+# ============================================================
+
+current_values = pd.Series(
+    st.session_state.input_data,
+    index=feature_names
+)
+
+deviations = abs(
+    current_values - normal_baseline
+)
+
+top_deviations = deviations.sort_values(
+    ascending=False
+).head(10)
+
+# ============================================================
+# FULL SENSOR DEVIATION VECTOR
+# ============================================================
+
+sensor_deviation_df = pd.DataFrame({
+
+    "Sensor": feature_names,
+
+    "Deviation": deviations.values
+
+})
+
 # ============================================================
 # INCIDENT LOGGING ENGINE
 # ============================================================
 
 if anomaly_prediction == -1:
     if not st.session_state.anomaly_active or st.session_state.last_logged_fault != predicted_fault:
-        log_file = "incident_logs.csv"
+        log_file = "data/incident_logs.csv"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_data = pd.DataFrame([{
             "Timestamp": timestamp,
@@ -311,6 +435,29 @@ st.markdown("""
 Real-time autonomous industrial fault classification and anomaly detection
 using Tennessee Eastman Process benchmark data.
 """)
+
+# ============================================================
+# REPLAY STATUS
+# ============================================================
+
+st.subheader("Replay Status")
+
+if st.session_state.replay_active:
+
+    st.success(
+        f"Replaying Fault {selected_fault}"
+    )
+
+    st.write(
+        f"Frame: "
+        f"{st.session_state.replay_index}"
+    )
+
+else:
+
+    st.info("Replay stopped.")
+
+st.markdown("---")
 
 if anomaly_prediction == -1:
     st.markdown("""
@@ -563,6 +710,83 @@ elif selected == "Anomaly Analysis":
     )
 
 # ============================================================
+# EARLY WARNING SYSTEM
+# ============================================================
+
+st.subheader("Predictive Maintenance Alert")
+
+if early_warning:
+
+    st.error(
+        "Emerging fault pattern detected. "
+        "Process behavior indicates rising abnormality."
+    )
+
+else:
+
+    st.success(
+        "Process behavior stable."
+    )
+
+warning_df = pd.DataFrame({
+    "Confidence":
+    st.session_state.fault_history
+})
+
+st.line_chart(warning_df)
+
+st.markdown("---")
+
+# ============================================================
+# ROOT CAUSE ANALYSIS PANEL
+# ============================================================
+
+st.subheader("Root Cause Analysis")
+
+rootcause_df = pd.DataFrame({
+    "Sensor": top_deviations.index,
+    "Deviation": top_deviations.values
+})
+
+st.dataframe(
+    rootcause_df,
+    use_container_width=True
+)
+
+st.bar_chart(
+    rootcause_df.set_index("Sensor")
+)
+
+st.markdown("---")
+
+# ============================================================
+# SENSOR HEATMAP
+# ============================================================
+
+st.subheader(
+    "Sensor Abnormality Heatmap"
+)
+
+heatmap_data = np.array(
+    sensor_deviation_df["Deviation"]
+).reshape(4, 13)
+
+heatmap_fig = px.imshow(
+    heatmap_data,
+    aspect="auto",
+    labels=dict(
+        color="Deviation"
+    )
+)
+
+st.plotly_chart(
+    heatmap_fig,
+    use_container_width=True
+)
+
+st.markdown("---")
+
+# ============================================================
 # LIVE FAULT EVOLUTION
 # ============================================================
 
@@ -584,26 +808,42 @@ if len(st.session_state.probability_history) > 0:
 # ============================================================
 # LIVE PROCESS SIMULATION TRIGGER & DRIFT
 # ============================================================
+# REPLAY ENGINE
+# ============================================================
 
-from streamlit_autorefresh import st_autorefresh
+if st.session_state.replay_active:
 
-# Auto refresh every 2 seconds
-count = st_autorefresh(
-    interval=2000,
-    limit=None,
-    key="process_refresh"
-)
+    if (
+        st.session_state.replay_index
+        < len(fault_data)
+    ):
 
-# Simulate sensor drift
-noise = np.random.normal(
-    0,
-    0.5,
-    len(st.session_state.input_data)
-)
+        current_row = fault_data.iloc[
+            st.session_state.replay_index
+        ]
 
-st.session_state.input_data = (
-    st.session_state.input_data + noise
-)
+        st.session_state.input_data = (
+            current_row[feature_names]
+            .values
+            .astype(float)
+        )
+
+        st.session_state.replay_index += 1
+
+    else:
+
+        st.session_state.replay_active = False
+else:
+    # Simulate sensor drift
+    noise = np.random.normal(
+        0,
+        0.5,
+        len(st.session_state.input_data)
+    )
+
+    st.session_state.input_data = (
+        st.session_state.input_data + noise
+    )
 
 st.session_state.sequence_buffer.append(
     st.session_state.input_data.copy()
@@ -619,3 +859,10 @@ st.session_state.history.append({
 # Keep only recent values (max 50)
 if len(st.session_state.history) > 50:
     st.session_state.history.pop(0)
+
+# ============================================================
+# AUTO REFRESH
+# ============================================================
+
+time.sleep(0.2)
+st.rerun()
