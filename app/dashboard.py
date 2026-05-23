@@ -39,16 +39,83 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
 
-.stApp {
-    background-color: #0e1117;
-    color: white;
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    background-color: #060913 !important;
+    color: #e2e8f0 !important;
 }
 
-.metric-box {
-    background-color: #1c1f26;
-    padding: 20px;
-    border-radius: 10px;
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background-color: #0b0e1a !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Premium Glassmorphic Cards */
+.cyber-card {
+    background: linear-gradient(135deg, rgba(16, 22, 40, 0.75) 0%, rgba(9, 13, 26, 0.85) 100%) !important;
+    padding: 20px 24px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 16px;
+    backdrop-filter: blur(8px);
+}
+
+.cyber-card:hover {
+    border-color: rgba(0, 255, 210, 0.2) !important;
+    box-shadow: 0 12px 40px 0 rgba(0, 255, 210, 0.05);
+}
+
+/* Button & interactive states */
+.stButton>button {
+    background: linear-gradient(135deg, #1d264f 0%, #0f1636 100%) !important;
+    color: #00ffd2 !important;
+    border: 1px solid rgba(0, 255, 210, 0.15) !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 500 !important;
+    border-radius: 8px !important;
+    padding: 8px 20px !important;
+    transition: all 0.2s ease-in-out !important;
+    width: 100% !important;
+}
+
+.stButton>button:hover {
+    background: linear-gradient(135deg, #28346e 0%, #172152 100%) !important;
+    border-color: #00ffd2 !important;
+    box-shadow: 0 0 15px rgba(0, 255, 210, 0.2);
+}
+
+/* Scrollbar customizations */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #060913;
+}
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* Custom styled Alert blocks */
+div[data-testid="stAlert"] {
+    background-color: rgba(16, 22, 40, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 8px !important;
+}
+
+div[data-testid="stAlert"] p {
+    color: #e2e8f0 !important;
+    font-weight: 500 !important;
 }
 
 </style>
@@ -185,24 +252,28 @@ with st.sidebar:
             st.session_state.input_data = np.array(presets["0"])
             st.session_state.anomaly_active = False
             st.session_state.last_logged_fault = None
+            st.session_state.replay_active = False
             st.rerun()
             
         if st.button("Fault 3 Simulation"):
             st.session_state.input_data = np.array(presets["3"])
             st.session_state.anomaly_active = False
             st.session_state.last_logged_fault = None
+            st.session_state.replay_active = False
             st.rerun()
             
         if st.button("Fault 9 Simulation"):
             st.session_state.input_data = np.array(presets["9"])
             st.session_state.anomaly_active = False
             st.session_state.last_logged_fault = None
+            st.session_state.replay_active = False
             st.rerun()
             
         if st.button("High-Risk Process State"):
             st.session_state.input_data = np.array(presets["1"])
             st.session_state.anomaly_active = False
             st.session_state.last_logged_fault = None
+            st.session_state.replay_active = False
             st.rerun()
     except Exception as e:
         st.error(f"Error loading presets: {e}")
@@ -211,6 +282,7 @@ with st.sidebar:
         st.session_state.input_data = np.random.normal(50, 10, len(feature_names))
         st.session_state.anomaly_active = False
         st.session_state.last_logged_fault = None
+        st.session_state.replay_active = False
         st.rerun()
 
     st.markdown("---")
@@ -429,12 +501,12 @@ else:
 # HEADER & ALERTS
 # ============================================================
 
-st.title("Industrial Process Monitoring System")
-
 st.markdown("""
-Real-time autonomous industrial fault classification and anomaly detection
-using Tennessee Eastman Process benchmark data.
-""")
+<div style="background: linear-gradient(90deg, rgba(29, 38, 79, 0.4) 0%, rgba(11, 14, 26, 0) 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #00ffd2; margin-bottom: 25px;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; text-shadow: 0 0 15px rgba(0, 255, 210, 0.1);">Industrial Process Monitoring System</h1>
+    <p style="color: #8c9ba5; margin: 8px 0 0 0; font-size: 15px; font-weight: 400; max-width: 800px;">Real-time autonomous industrial fault classification and anomaly detection using Tennessee Eastman Process benchmark telemetry.</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ============================================================
 # REPLAY STATUS
@@ -489,40 +561,78 @@ if anomaly_prediction == -1:
 metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
 with metric_col1:
-    st.metric(
-        "Predicted Fault",
-        f"Fault {predicted_fault}" if anomaly_prediction == -1 else "No Fault Detected"
-    )
+    fault_label = f"Fault {predicted_fault}" if anomaly_prediction == -1 else "No Fault Detected"
+    fault_color = "#ff4b4b" if anomaly_prediction == -1 else "#00ffd2"
+    st.markdown(f"""
+    <div class="cyber-card">
+        <h5 style="color: #8c9ba5; margin: 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Classification Status</h5>
+        <h2 style="color: {fault_color}; margin: 12px 0 0 0; font-size: 24px; font-weight: 700; text-shadow: 0 0 10px {fault_color}33;">{fault_label}</h2>
+        <p style="color: #52637a; margin: 5px 0 0 0; font-size: 12px;">Active Random Forest model</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 with metric_col2:
-    st.metric(
-        "Prediction Confidence",
-        f"{confidence * 100:.2f}%"
-    )
+    st.markdown(f"""
+    <div class="cyber-card">
+        <h5 style="color: #8c9ba5; margin: 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Prediction Confidence</h5>
+        <h2 style="color: #00e5ff; margin: 12px 0 0 0; font-size: 24px; font-weight: 700; text-shadow: 0 0 10px #00e5ff33;">{confidence * 100:.2f}%</h2>
+        <p style="color: #52637a; margin: 5px 0 0 0; font-size: 12px;">Probability distribution peak</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 with metric_col3:
-    if anomaly_prediction == -1:
-        st.error("CRITICAL ANOMALY")
-    else:
-        st.success("NORMAL OPERATION")
+    status_label = "CRITICAL ANOMALY" if anomaly_prediction == -1 else "NORMAL OPERATION"
+    status_color = "#ff4b4b" if anomaly_prediction == -1 else "#00ffd2"
+    status_bg = "rgba(255, 75, 75, 0.08)" if anomaly_prediction == -1 else "rgba(0, 255, 210, 0.08)"
+    st.markdown(f"""
+    <div class="cyber-card" style="border-color: {status_color}33; background: linear-gradient(135deg, {status_bg} 0%, rgba(12, 15, 23, 0.95) 100%);">
+        <h5 style="color: #8c9ba5; margin: 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Process State</h5>
+        <h2 style="color: {status_color}; margin: 12px 0 0 0; font-size: 24px; font-weight: 700; text-shadow: 0 0 10px {status_color}4d;">{status_label}</h2>
+        <p style="color: #52637a; margin: 5px 0 0 0; font-size: 12px;">Isolation Forest anomaly tracker</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 with metric_col4:
-    st.metric(
-        "Process Health Score",
-        f"{health_score:.1f}%"
-    )
+    health_color = "#00ffd2" if health_score > 75 else "#ffaa00" if health_score > 40 else "#ff4b4b"
+    st.markdown(f"""
+    <div class="cyber-card">
+        <h5 style="color: #8c9ba5; margin: 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Process Health Score</h5>
+        <h2 style="color: {health_color}; margin: 12px 0 0 0; font-size: 24px; font-weight: 700; text-shadow: 0 0 10px {health_color}33;">{health_score:.1f}%</h2>
+        <div style="background: rgba(255, 255, 255, 0.05); border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
+            <div style="background: {health_color}; width: {health_score}%; height: 100%; border-radius: 4px;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-with metric_col4:
+# ============================================================
+# LSTM SEQUENTIAL ANALYSIS METRICS
+# ============================================================
 
-    st.metric(
-        "LSTM Sequence Prediction",
-        f"Fault {lstm_prediction}"
-    )
+st.markdown("<h4 style='color: #8c9ba5; margin: 10px 0 15px 0; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1.5px;'>LSTM Sequential Predictor</h4>", unsafe_allow_html=True)
 
-    st.metric(
-    "LSTM Confidence",
-    f"{lstm_confidence * 100:.2f}%"
-)
+lstm_col1, lstm_col2 = st.columns(2)
+
+with lstm_col1:
+    lstm_val = f"Fault {lstm_prediction}" if isinstance(lstm_prediction, (int, float, str)) and lstm_prediction != "Waiting for sequence..." else lstm_prediction
+    lstm_color = "#bd93f9" if lstm_prediction != "Waiting for sequence..." else "#8c9ba5"
+    st.markdown(f"""
+    <div class="cyber-card" style="border-color: rgba(189, 147, 249, 0.15);">
+        <h5 style="color: #8c9ba5; margin: 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">LSTM Sequence Prediction</h5>
+        <h2 style="color: {lstm_color}; margin: 12px 0 0 0; font-size: 22px; font-weight: 700; text-shadow: 0 0 10px {lstm_color}33;">{lstm_val}</h2>
+        <p style="color: #52637a; margin: 5px 0 0 0; font-size: 12px;">Deep sequential temporal model (10-frame buffer)</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with lstm_col2:
+    st.markdown(f"""
+    <div class="cyber-card" style="border-color: rgba(189, 147, 249, 0.15);">
+        <h5 style="color: #8c9ba5; margin: 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">LSTM Prediction Confidence</h5>
+        <h2 style="color: #bd93f9; margin: 12px 0 0 0; font-size: 22px; font-weight: 700; text-shadow: 0 0 10px #bd93f933;">{lstm_confidence * 100:.2f}%</h2>
+        <div style="background: rgba(255, 255, 255, 0.05); border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
+            <div style="background: #bd93f9; width: {lstm_confidence * 100}%; height: 100%; border-radius: 4px;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -774,8 +884,22 @@ heatmap_data = np.array(
 heatmap_fig = px.imshow(
     heatmap_data,
     aspect="auto",
+    color_continuous_scale="turbo",
     labels=dict(
         color="Deviation"
+    )
+)
+
+heatmap_fig.update_layout(
+    template="plotly_dark",
+    margin=dict(l=10, r=10, t=10, b=10),
+    height=320,
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    coloraxis_colorbar=dict(
+        title="Deviation",
+        thicknessmode="pixels", thickness=15,
+        lenmode="fraction", len=0.8
     )
 )
 
