@@ -13,8 +13,13 @@ from streamlit_option_menu import option_menu
 from tensorflow.keras.models import load_model
 from collections import deque
 
-if not os.path.exists("models/tep_fault_classifier.pkl"):
+
+
+if not os.path.exists("models/"):
     import download_models
+if not os.path.exists("data/"):
+    import download_dataset
+
 
 # ============================================================
 # PAGE CONFIG
