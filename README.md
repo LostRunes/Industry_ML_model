@@ -125,3 +125,6 @@ For developers looking to retrain the underlying intelligence models:
 * Run `train_tep_model.py` to rebuild the 150-estimator Random Forest classifier.
 * Run `train_lstm_model.py` to adjust sequential sliding-window neural weights.
 * Run `create_temporal_features.py` to extract customized sliding window features (std, variance, rate-of-change) and train them on `train_temporal_model.py`.
+
+<img width="745" height="624" alt="image" src="https://github.com/user-attachments/assets/ead4f5e5-c2ab-4642-bcdd-8144aa5d1ae0" />
+
