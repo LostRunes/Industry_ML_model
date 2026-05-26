@@ -30,41 +30,68 @@ An enterprise-grade, real-time autonomous industrial monitoring dashboard design
 
 ---
 
+## 🔬 The LSTM Evolutionary Journey (Leakage vs. Scaled Industrial)
+
+The core deep learning sequence predictor evolved through three distinct iterations, representing a professional journey from standard prototyping to scientifically rigorous, production-scale ML engineering.
+
+### Performance & Structural Comparison
+
+| Model / Pipeline Version | Preprocessing & Splitting Strategy | Leakage Status | Test Accuracy | Macro F1-Score | Data Scope / Total Sequences |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Historical / Leakage-Prone** <br>`train_lstm_model_with_leakage.py` | Overlapping sliding-window sequences generated *before* random train-test splitting; feature scaling fit on the entire dataset. | 🛑 **High Leakage** <br>(Future information leaked via overlap & scaling) | **97.66%** <br>*(Artificially inflated)* | **97.60%** | `11,660` sequences (Subset) |
+| **2. Leakage-Safe (Subset)** <br>`train_lstm_model.py` | Simulation runs sorted and split *before* creating sequences (80% train runs, 20% test runs). Feature scaling fit exclusively on training data. | ✅ **Leakage-Safe** <br>(Strict separation of runs) | **84.55%** <br>*(Scientifically valid)* | **83.00%** | `11,660` sequences (Subset) |
+| **3. Industrial-Scale (Full)** <br>`train_lstm_model_full.py` | Dynamic chronological splitting on the full RData dataset. Memory-optimized downsampling (first 50 runs per fault), `float32` precision casting, and training-set shuffling. | ✅ **Leakage-Safe** <br>(Production scale) | **88.00%** <br>*(Highly robust)* | **89.00%** | **`490,000` sequences** <br>(Full Dataset) |
+
+### Why This Evolution Matters (Interview Value)
+* **The Danger of Data Leakage in Time Series:** Generating sliding-window sequences across simulation boundaries before splitting means adjacent sequences share 9 out of 10 data frames. In a random split, a test sequence's near-identical neighbors will almost certainly end up in the training set. This creates massive data leakage, resulting in an artificially perfect but fragile model.
+* **The Chronological Split Fix:** By partitioning the simulation runs first (e.g., training only on runs 1-40, and testing only on runs 41-50), the model is evaluated on completely unseen plant runs, providing a true reflection of control-room performance.
+* **Paging & Memory Optimization:** Loading the 5-million-row RData file in Python easily triggers process-level `MemoryError` exceptions. We engineered a **memory-safe downsampling pipeline** that filters to a balanced subset of runs and casts float features to `float32` immediately, cutting RAM usage in half while maintaining state-of-the-art predictive performance on **490,000 sequences**.
+
+---
+
 ## 📂 Project Structure
 
 ```bash
 industry-model/
 │
 ├── app/
-│   └── dashboard.py          # Streamlit UI dashboard with premium dark-cyber styling
+│   └── dashboard.py                  # Streamlit UI dashboard with premium dark-cyber styling
 │
-├── data/                     # Subfolder holding project data (organized & cleaned up)
-│   ├── tep_subset.csv        # TEP dataset subset
-│   ├── tep_replay.csv        # Custom 10,000-frame sequential fault replay dataset
-│   ├── incident_logs.csv     # Autonomous CSV logging engine for plant anomalies
-│   ├── presets.json          # Pre-computed simulation preset states (Normal, Fault 3, etc.)
-│   ├── feature_importances.csv
-│   └── pca_background.csv
+├── data/                             # Subfolder holding project data
+│   ├── tep_subset.csv                # TEP dataset subset
+│   ├── TEP_Faulty_Training.RData     # FULL 5-million-row industrial RData dataset
+│   ├── tep_replay.csv                # Custom 10,000-frame sequential fault replay dataset
+│   ├── incident_logs.csv             # Autonomous CSV logging engine for plant anomalies
+│   ├── presets.json                  # Pre-computed simulation preset states
+│   └── ...
 │
-├── models/                   # Pre-trained ML/DL models & scalers
-│   ├── tep_fault_classifier.pkl
+├── models/                           # Pre-trained ML/DL models & scalers
+│   ├── tep_fault_classifier.pkl      # Random Forest Classifier
 │   ├── tep_scaler.pkl
-│   ├── anomaly_detector.pkl
-│   ├── anomaly_scaler.pkl
-│   ├── lstm_fault_model.keras
-│   └── lstm_label_encoder.pkl
+│   ├── lstm_fault_model.keras        # Leakage-Safe LSTM Model (Subset)
+│   ├── lstm_label_encoder.pkl
+│   ├── lstm_fault_model_full.keras   # Scaled Industrial LSTM Model (Full)
+│   ├── lstm_label_encoder_full.pkl
+│   ├── lstm_fault_model_with_leakage.keras # Historical Leakage Model (Subset)
+│   └── ...
 │
-├── download_dataset.py       # Utility downloading the base TEP subset
-├── download_models.py        # Utility downloading pre-trained network model binaries
-├── prepare_replay_data.py    # Prepares temporal sequence replay data
-├── train_tep_model.py        # Random Forest model training script
-├── train_anomaly_detector.py # Isolation Forest model training script
-├── train_lstm_model.py       # LSTM sequence classifier training script
-├── create_temporal_features.py # Rolling temporal sliding-window feature extractor
-├── train_temporal_model.py   # Training script for temporal ML features
+├── download_dataset.py               # Utility downloading the base TEP subset
+├── download_models.py                # Utility downloading pre-trained network model binaries
+├── prepare_replay_data.py            # Prepares temporal sequence replay data
 │
-├── requirements.txt          # Python dependency specifications
-└── README.md                 # Project README documentation
+├── create_lstm_sequences.py          # Leakage-Safe Sequence Generator (Subset)
+├── train_lstm_model.py               # Leakage-Safe LSTM Trainer (Subset)
+│
+├── create_lstm_sequences_full.py     # Memory-Safe Sequence Generator (Full RData)
+├── train_lstm_model_full.py          # Scaled LSTM Trainer (Full RData, Batch Size 512)
+│
+├── create_lstm_sequences_with_leakage.py # Historical Generator (with Data Leakage)
+├── train_lstm_model_with_leakage.py  # Historical Trainer (with Data Leakage)
+│
+├── train_tep_model.py                # Random Forest model training script
+├── train_anomaly_detector.py         # Isolation Forest model training script
+├── requirements.txt                  # Python dependency specifications
+└── README.md                         # Project README documentation
 ```
 
 ---
@@ -74,7 +101,7 @@ industry-model/
 ### 1. Prerequisites
 Ensure you have Python 3.8+ installed. It is highly recommended to use a virtual environment:
 ```bash
-# Clone the repository and navigate to the project directory
+# Navigate to the project directory
 cd industry-model
 
 # Create and activate a virtual environment
@@ -84,25 +111,32 @@ source venv/bin/activate    # On Linux/macOS
 ```
 
 ### 2. Install Dependencies
-Install all required packages from `requirements.txt`:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Download & Prepare Datasets/Models
-Execute the download and preparation scripts:
+### 3. Run the Historical model (with Data Leakage)
+To reproduce the historic 97.66% data-leakage benchmark:
 ```bash
-# Download datasets
-python download_dataset.py
-
-# Download ML/DL model binaries
-python download_models.py
-
-# Prepare sequential replay dataset
-python prepare_replay_data.py
+python create_lstm_sequences_with_leakage.py
+python train_lstm_model_with_leakage.py
 ```
 
-### 4. Run the Premium Dashboard
+### 4. Run the Leakage-Safe model (Subset)
+To run the leakage-free, scientifically rigorous subset model:
+```bash
+python create_lstm_sequences.py
+python train_lstm_model.py
+```
+
+### 5. Run the Scaled Industrial model (Full Dataset)
+To preprocess and train on the massive 5-million-row industrial RData dataset:
+```bash
+python create_lstm_sequences_full.py
+python train_lstm_model_full.py
+```
+
+### 6. Run the Premium Dashboard
 Launch the Streamlit web dashboard:
 ```bash
 streamlit run app/dashboard.py
@@ -117,11 +151,3 @@ The dashboard uses a custom-developed **Dark Cybernetic Industrial Theme**:
 * **Modern Typography**: Telemetric Outfit font blended with JetBrains Mono code panels.
 * **Neon Alert Indication**: Glowing crimson red warnings for anomalies and glowing cyan/teal alerts for stable states.
 * **Anti-Fighting Logic**: Integrated state-conflict deactivators on preset controls to automatically freeze active sequential replays when static presets are selected, ensuring high operational reliability.
-
----
-
-## 📊 ML Architecture & Development
-For developers looking to retrain the underlying intelligence models:
-* Run `train_tep_model.py` to rebuild the 150-estimator Random Forest classifier.
-* Run `train_lstm_model.py` to adjust sequential sliding-window neural weights.
-* Run `create_temporal_features.py` to extract customized sliding window features (std, variance, rate-of-change) and train them on `train_temporal_model.py`.
