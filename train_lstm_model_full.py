@@ -12,71 +12,44 @@ from tensorflow.keras.layers import (
     Dropout
 )
 
-
 from tensorflow.keras.utils import to_categorical
 
 import joblib
 
 # ============================================================
-# LOAD DATA
+# LOAD FULL DATA
 # ============================================================
 
-X_train = np.load("X_train_lstm.npy")
-y_train = np.load("y_train_lstm.npy")
+print("Loading full industrial LSTM datasets...")
+X_train = np.load("X_train_lstm_full.npy")
+y_train = np.load("y_train_lstm_full.npy")
 
-X_test = np.load("X_test_lstm.npy")
-y_test = np.load("y_test_lstm.npy")
+X_test = np.load("X_test_lstm_full.npy")
+y_test = np.load("y_test_lstm_full.npy")
+
+print(f"Loaded X_train: {X_train.shape}, y_train: {y_train.shape}")
+print(f"Loaded X_test: {X_test.shape}, y_test: {y_test.shape}")
 
 # ============================================================
-# SCALE FEATURES
+# SCALE FEATURES (NO LEAKAGE)
 # ============================================================
 
+print("\nScaling features (fitting only on train dataset)...")
 train_samples, timesteps, features = X_train.shape
 test_samples = X_test.shape[0]
 
-# -------------------------
-# RESHAPE
-# -------------------------
+# Reshape
+X_train_reshaped = X_train.reshape(-1, features)
+X_test_reshaped = X_test.reshape(-1, features)
 
-X_train_reshaped = X_train.reshape(
-    -1,
-    features
-)
-
-X_test_reshaped = X_test.reshape(
-    -1,
-    features
-)
-
-# -------------------------
-# FIT ONLY ON TRAIN
-# -------------------------
-
+# Fit only on train
 scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train_reshaped)
+X_test_scaled = scaler.transform(X_test_reshaped)
 
-X_train_scaled = scaler.fit_transform(
-    X_train_reshaped
-)
-
-X_test_scaled = scaler.transform(
-    X_test_reshaped
-)
-
-# -------------------------
-# RESHAPE BACK
-# -------------------------
-
-X_train = X_train_scaled.reshape(
-    train_samples,
-    timesteps,
-    features
-)
-
-X_test = X_test_scaled.reshape(
-    test_samples,
-    timesteps,
-    features
-)
+# Reshape back
+X_train = X_train_scaled.reshape(train_samples, timesteps, features)
+X_test = X_test_scaled.reshape(test_samples, timesteps, features)
 
 print("Scaled Train Shape:", X_train.shape)
 print("Scaled Test Shape:", X_test.shape)
@@ -85,35 +58,31 @@ print("Scaled Test Shape:", X_test.shape)
 # ENCODE LABELS
 # ============================================================
 
+print("\nEncoding labels...")
 encoder = LabelEncoder()
-
 y_train_encoded = encoder.fit_transform(y_train)
-
 y_test_encoded = encoder.transform(y_test)
 
 y_train = to_categorical(y_train_encoded)
 y_test = to_categorical(y_test_encoded)
 
 # ============================================================
-# SHUFFLE TRAINING DATA
+# SHUFFLE TRAINING DATA (REPRESENTATIVE VALIDATION)
 # ============================================================
 
-# Since train data is ordered by faultNumber/simulationRun, we shuffle
-# it so that Keras's validation_split (last 20%) is representative.
+print("\nShuffling training dataset for representative validation split...")
 indices = np.arange(len(X_train))
 np.random.seed(42)
 np.random.shuffle(indices)
 X_train = X_train[indices]
 y_train = y_train[indices]
 
-
-
 # ============================================================
 # BUILD LSTM MODEL
 # ============================================================
 
+print("\nBuilding industrial LSTM model...")
 model = Sequential([
-
     Input(shape=(
         X_train.shape[1],
         X_train.shape[2]
@@ -157,27 +126,28 @@ model.compile(
 # TRAIN
 # ============================================================
 
-print("\nTraining LSTM...\n")
+print("\nTraining industrial LSTM model...\n")
 
 history = model.fit(
     X_train,
     y_train,
     validation_split=0.2,
     shuffle=True,
-    epochs=15,
-    batch_size=128
+    epochs=10,
+    batch_size=512
 )
 
 # ============================================================
 # EVALUATE
 # ============================================================
 
+print("\nEvaluating model on test dataset...")
 loss, accuracy = model.evaluate(
     X_test,
     y_test
 )
 
-print("\nTest Accuracy:")
+print("\nFull Test Accuracy:")
 print(accuracy)
 
 # ============================================================
@@ -185,37 +155,27 @@ print(accuracy)
 # ============================================================
 
 y_pred_probs = model.predict(X_test)
+y_pred = np.argmax(y_pred_probs, axis=1)
+y_true = np.argmax(y_test, axis=1)
 
-y_pred = np.argmax(
-    y_pred_probs,
-    axis=1
-)
-
-y_true = np.argmax(
-    y_test,
-    axis=1
-)
-
-print("\nClassification Report:\n")
-
+print("\nIndustrial Classification Report:\n")
 print(classification_report(
     y_true,
     y_pred
 ))
 
 # ============================================================
-# SAVE MODEL
+# SAVE MODEL & ASSETS
 # ============================================================
 
-model.save("models/lstm_fault_model.keras")
+import os
+os.makedirs("models", exist_ok=True)
 
-print("\nLSTM model saved!")
-
-#h5 model bad
+model.save("models/lstm_fault_model_full.keras")
+print("\nIndustrial LSTM model saved to models/lstm_fault_model_full.keras!")
 
 joblib.dump(
     encoder,
-    "models/lstm_label_encoder.pkl"
+    "models/lstm_label_encoder_full.pkl"
 )
-
-print("\nLSTM laber encoder saved!")
+print("Industrial LSTM label encoder saved to models/lstm_label_encoder_full.pkl!")

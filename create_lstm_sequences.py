@@ -1,4 +1,7 @@
-#sequence dataset generator for lstm
+# ============================================================
+# LEAKAGE-SAFE LSTM SEQUENCE GENERATOR
+# ============================================================
+
 import pandas as pd
 import numpy as np
 
@@ -13,7 +16,7 @@ df = pd.read_csv("data/tep_subset.csv")
 # ============================================================
 
 df = df.sort_values(
-    by=["simulationRun", "sample"]
+    by=["faultNumber", "simulationRun", "sample"]
 )
 
 # ============================================================
@@ -35,52 +38,130 @@ feature_cols = [
 
 sequence_length = 10
 
-X_sequences = []
-y_sequences = []
+X_train = []
+y_train = []
+
+X_test = []
+y_test = []
 
 # ============================================================
-# CREATE SEQUENCES
+# DYNAMIC RUN SPLIT
 # ============================================================
 
-for run_id in df["simulationRun"].unique():
+all_runs = sorted(
+    df["simulationRun"].unique()
+)
 
-    run_data = df[
-        df["simulationRun"] == run_id
+split_index = int(
+    len(all_runs) * 0.8
+)
+
+train_runs = all_runs[:split_index]
+test_runs = all_runs[split_index:]
+
+print("\nTrain Runs:", len(train_runs))
+print("Test Runs:", len(test_runs))
+
+# ============================================================
+# CREATE TRAIN SEQUENCES
+# ============================================================
+
+for fault in df["faultNumber"].unique():
+
+    fault_df = df[
+        df["faultNumber"] == fault
     ]
 
-    X_run = run_data[feature_cols].values
-    y_run = run_data["faultNumber"].values
+    # -------------------------
+    # TRAIN RUNS
+    # -------------------------
 
-    for i in range(
-        len(run_data) - sequence_length
-    ):
+    train_df = fault_df[
+        fault_df["simulationRun"].isin(train_runs)
+    ]
 
-        X_seq = X_run[
-            i:i + sequence_length
+    for run_id in train_df["simulationRun"].unique():
+
+        run_data = train_df[
+            train_df["simulationRun"] == run_id
         ]
 
-        y_seq = y_run[
-            i + sequence_length
+        X_run = run_data[feature_cols].values
+        y_run = run_data["faultNumber"].values
+
+        for i in range(
+            len(run_data) - sequence_length
+        ):
+
+            X_seq = X_run[
+                i:i + sequence_length
+            ]
+
+            y_seq = y_run[
+                i + sequence_length
+            ]
+
+            X_train.append(X_seq)
+            y_train.append(y_seq)
+
+    # -------------------------
+    # TEST RUNS
+    # -------------------------
+
+    test_df = fault_df[
+        fault_df["simulationRun"].isin(test_runs)
+    ]
+
+    for run_id in test_df["simulationRun"].unique():
+
+        run_data = test_df[
+            test_df["simulationRun"] == run_id
         ]
 
-        X_sequences.append(X_seq)
-        y_sequences.append(y_seq)
+        X_run = run_data[feature_cols].values
+        y_run = run_data["faultNumber"].values
+
+        for i in range(
+            len(run_data) - sequence_length
+        ):
+
+            X_seq = X_run[
+                i:i + sequence_length
+            ]
+
+            y_seq = y_run[
+                i + sequence_length
+            ]
+
+            X_test.append(X_seq)
+            y_test.append(y_seq)
 
 # ============================================================
 # CONVERT TO NUMPY
 # ============================================================
 
-X_sequences = np.array(X_sequences)
-y_sequences = np.array(y_sequences)
+X_train = np.array(X_train)
+y_train = np.array(y_train)
 
-print("X shape:", X_sequences.shape)
-print("y shape:", y_sequences.shape)
+X_test = np.array(X_test)
+y_test = np.array(y_test)
+
+print("\nTrain Shapes:")
+print(X_train.shape)
+print(y_train.shape)
+
+print("\nTest Shapes:")
+print(X_test.shape)
+print(y_test.shape)
 
 # ============================================================
 # SAVE
 # ============================================================
 
-np.save("X_lstm.npy", X_sequences)
-np.save("y_lstm.npy", y_sequences)
+np.save("X_train_lstm.npy", X_train)
+np.save("y_train_lstm.npy", y_train)
 
-print("\nLSTM sequences saved!")
+np.save("X_test_lstm.npy", X_test)
+np.save("y_test_lstm.npy", y_test)
+
+print("\nLeakage-safe LSTM datasets saved!")
